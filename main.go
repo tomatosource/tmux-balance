@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Layout struct {
@@ -40,12 +41,27 @@ func main() {
 }
 
 func split(horizontal bool) {
+	pwd := mustExec(
+		"tmux", "display-message", "-p", "-F",
+		"#{pane_current_path}", fmt.Sprintf("-t %d", getActivePane()),
+	)
 	if horizontal {
-		mustExec("tmux", "split-window", "-h", `-c "$PWD"`)
+		mustExec("tmux", "split-window", "-h")
 	} else {
-		mustExec("tmux", "split-window", "-v", `-c "$PWD"`)
+		mustExec("tmux", "split-window", "-v")
 	}
+
+	// TODO
+	// Can't seem to get -c flag working to set dir on split
+	// so setting manually
 	activePane := getActivePane()
+	time.Sleep(time.Millisecond * 50) // TODO this sucks
+	mustExec("tmux", "send-keys",
+		fmt.Sprintf("-t %d", activePane),
+		fmt.Sprintf("cd %s && c", pwd),
+		"C-m",
+	)
+
 	rootLayout := getRootLayout()
 	layout := getLayoutByPaneID(activePane, rootLayout)
 	rebalanceLayout(layout, horizontal)
