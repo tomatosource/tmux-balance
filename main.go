@@ -2,16 +2,44 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/tomatosource/socklog"
 )
 
+// TODO - lol
 var paneID = 0
 
+type Layout struct {
+	isRow      bool
+	dimensions Dimensions
+	children   []*Layout
+	parent     *Layout
+	pane       *Pane
+}
+
+type Pane struct {
+	id         int
+	dimensions Dimensions
+}
+
+type Dimensions struct {
+	height int
+	width  int
+}
+
 func main() {
+	socklogger := socklog.MustNew("localhost:8080")
+	defer socklogger.Close()
+	log.SetOutput(socklogger)
+	log.SetFlags(0)
+
 	arg := os.Args[1]
 	switch arg {
 	case "x":
@@ -21,14 +49,6 @@ func main() {
 	case "s":
 		split(false)
 	}
-}
-
-func kill() {
-	activePane := getActivePane()
-	rootLayout := getRootLayout()
-	layout := getLayoutByPaneID(activePane, rootLayout)
-	rebalanceLayoutOnClose(layout, layout.isRow, activePane)
-	mustExec("tmux", "kill-pane")
 }
 
 func split(horizontal bool) {
@@ -44,28 +64,30 @@ func split(horizontal bool) {
 	rebalanceLayout(layout, horizontal)
 }
 
-func rebalanceLayoutOnClose(layout *Layout, horizontal bool, killID int) {
+func kill() {
+	activePane := getActivePane()
+	rootLayout := getRootLayout()
+	layout := getLayoutByPaneID(activePane, rootLayout)
 	if layout.pane != nil {
 		return
 	}
 
+	mustExec("tmux", "kill-pane")
+
 	baseSize := layout.dimensions.height
-	if horizontal {
+	if layout.isRow {
 		baseSize = layout.dimensions.width
 	}
 	newSizes := getNewSizes(len(layout.children)-1, baseSize)
-	offset := 0
+	log.Printf("%+v", newSizes)
 
+	var offset int
 	for i, child := range layout.children {
-		if child.pane != nil && child.pane.id == killID {
-			if horizontal {
-				setLayoutSize(child, 0, child.dimensions.height)
-			} else {
-				setLayoutSize(child, child.dimensions.width, 0)
-			}
-			offset++
+		if child.pane != nil && child.pane.id == activePane {
+			offset = 1
+			continue
 		}
-		if horizontal {
+		if layout.isRow {
 			setLayoutSize(child, newSizes[i-offset], child.dimensions.height)
 		} else {
 			setLayoutSize(child, child.dimensions.width, newSizes[i-offset])
@@ -98,44 +120,23 @@ func setLayoutSize(layout *Layout, width, height int) {
 		setPaneSize(layout.pane.id, width, height)
 		return
 	}
+	log.Printf("%d x %d", width, height)
+	log.Printf("%v", layout.isRow)
 
-	baseSize := layout.dimensions.height
+	baseSize := height
 	if layout.isRow {
-		baseSize = layout.dimensions.width
+		baseSize = width
 	}
 	newSizes := getNewSizes(len(layout.children), baseSize)
+	log.Printf("%+v", newSizes)
+
 	for i, child := range layout.children {
 		if layout.isRow {
-			setLayoutSize(child, newSizes[i], child.dimensions.height)
+			setLayoutSize(child, newSizes[i], height)
 		} else {
-			setLayoutSize(child, child.dimensions.width, newSizes[i])
+			setLayoutSize(child, width, newSizes[i])
 		}
 	}
-}
-
-func setPaneSize(paneID, width, height int) {
-	mustExec(
-		"tmux",
-		"resize-pane",
-		fmt.Sprintf("-t %d", paneID),
-		fmt.Sprintf("-x %d", width),
-		fmt.Sprintf("-y %d", height),
-	)
-}
-
-func getNewSizes(count, total int) []int {
-	newBaseSize := int(total / count)
-	rem := total % count
-	newSizes := []int{}
-	for i := 0; i < count; i++ {
-		newSize := newBaseSize
-		if rem > 0 {
-			newSize += 1
-			rem -= 1
-		}
-		newSizes = append(newSizes, newSize)
-	}
-	return newSizes
 }
 
 func getLayoutByPaneID(paneID int, layout *Layout) *Layout {
@@ -150,42 +151,13 @@ func getLayoutByPaneID(paneID int, layout *Layout) *Layout {
 	return nil
 }
 
-// work out which pane group need resizing
-// identify pane numbers
-// calc new pane sizes
-// apply sizes to panes
-
-func getActivePane() int {
-	lines := strings.Split(mustExec("tmux", "list-panes"), "\n")
-	for _, line := range lines {
-		if strings.Contains(line, "active") {
-			colonIndex := strings.Index(line, ":")
-			i, _ := strconv.Atoi(line[:colonIndex])
-			return i
-		}
-	}
-	return 0
-}
-
-func mustExec(cmd string, args ...string) string {
-	out, err := exec.Command(cmd, args...).Output()
-	if err != nil {
-		return "ERROR: " + string(out)
-	}
-	return string(out)
-}
-
 func getRootLayout() *Layout {
-	return getLayout(getRawLayout(), nil)[0]
-}
-
-func getRawLayout() string {
 	rawLayout := mustExec(
 		"tmux", "list-windows", "-F", "'#{window_layout}'",
 	)
 	initComma := strings.Index(rawLayout, ",")
 	rawLayout = rawLayout[initComma+1 : len(rawLayout)-2]
-	return rawLayout
+	return getLayout(rawLayout, nil)[0]
 }
 
 func getLayout(layout string, parent *Layout) []*Layout {
@@ -239,24 +211,6 @@ func getLayout(layout string, parent *Layout) []*Layout {
 	return layouts
 }
 
-type Layout struct {
-	isRow      bool
-	dimensions Dimensions
-	children   []*Layout
-	parent     *Layout
-	pane       *Pane
-}
-
-type Pane struct {
-	id         int
-	dimensions Dimensions
-}
-
-type Dimensions struct {
-	height int
-	width  int
-}
-
 func parseDimensions(dims string) Dimensions {
 	parts := strings.Split(dims, "x")
 	w, _ := strconv.Atoi(parts[0])
@@ -281,4 +235,54 @@ func getMatchIndex(s string, opener, closer rune) int {
 		}
 	}
 	return -1
+}
+
+func getNewSizes(count, total int) []int {
+	newBaseSize := int(total / count)
+	rem := total % count
+	newSizes := []int{}
+	for i := 0; i < count; i++ {
+		newSize := newBaseSize
+		if rem > 0 {
+			newSize += 1
+			rem -= 1
+		}
+		newSizes = append(newSizes, newSize)
+	}
+	return newSizes
+}
+
+func getActivePane() int {
+	lines := strings.Split(mustExec("tmux", "list-panes"), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "active") {
+			colonIndex := strings.Index(line, ":")
+			i, _ := strconv.Atoi(line[:colonIndex])
+			return i
+		}
+	}
+	return 0
+}
+
+func mustExec(cmd string, args ...string) string {
+	out, err := exec.Command(cmd, args...).Output()
+	if err != nil {
+		return "ERROR: " + string(out)
+	}
+	return string(out)
+}
+
+func setPaneSize(paneID, width, height int) {
+	log.Printf("%d, %d, %d", paneID, width, height)
+	mustExec(
+		"tmux",
+		"resize-pane",
+		fmt.Sprintf("-t %d", paneID),
+		fmt.Sprintf("-x %d", width),
+		fmt.Sprintf("-y %d", height),
+	)
+}
+
+func dump(foo interface{}) {
+	log.Printf("%s", spew.Sdump(foo))
 }
