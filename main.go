@@ -9,9 +9,6 @@ import (
 	"strings"
 )
 
-// TODO - lol
-var paneID = 0
-
 type Layout struct {
 	isRow      bool
 	dimensions Dimensions
@@ -43,11 +40,10 @@ func main() {
 }
 
 func split(horizontal bool) {
-	pwd := os.Getenv("PWD")
 	if horizontal {
-		mustExec("tmux", "split-window", "-h", "-c", pwd)
+		mustExec("tmux", "split-window", "-h", `-c "$PWD"`)
 	} else {
-		mustExec("tmux", "split-window", "-v", "-c", pwd)
+		mustExec("tmux", "split-window", "-v", `-c "$PWD"`)
 	}
 	activePane := getActivePane()
 	rootLayout := getRootLayout()
@@ -144,10 +140,11 @@ func getRootLayout() *Layout {
 	)
 	initComma := strings.Index(rawLayout, ",")
 	rawLayout = rawLayout[initComma+1 : len(rawLayout)-2]
-	return getLayout(rawLayout, nil)[0]
+	layouts, _ := getLayout(rawLayout, nil, 0)
+	return layouts[0]
 }
 
-func getLayout(layout string, parent *Layout) []*Layout {
+func getLayout(layout string, parent *Layout, paneID int) ([]*Layout, int) {
 	layout = strings.TrimSpace(layout)
 	layouts := []*Layout{}
 
@@ -181,7 +178,7 @@ func getLayout(layout string, parent *Layout) []*Layout {
 				parent:     parent,
 				dimensions: dims,
 			}
-			l.children = getLayout(layout[1:matchingIndex], l)
+			l.children, paneID = getLayout(layout[1:matchingIndex], l, paneID)
 			layouts = append(layouts, l)
 			layout = string(layout[matchingIndex+1:])
 		} else if strings.HasPrefix(layout, "[") {
@@ -190,12 +187,12 @@ func getLayout(layout string, parent *Layout) []*Layout {
 				parent:     parent,
 				dimensions: dims,
 			}
-			l.children = getLayout(layout[1:matchingIndex], l)
+			l.children, paneID = getLayout(layout[1:matchingIndex], l, paneID)
 			layouts = append(layouts, l)
 			layout = string(layout[matchingIndex+1:])
 		}
 	}
-	return layouts
+	return layouts, paneID
 }
 
 func parseDimensions(dims string) Dimensions {
