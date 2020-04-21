@@ -1,6 +1,6 @@
 # tmux-balance
 
-Aims to change split behaviour to match vim or iterm.
+Aims to change split behaviour to match vim/screen/iterm2.
 
 ## Installing
 
