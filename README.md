@@ -17,3 +17,7 @@ bind x run-shell "tmux-balance x &> /dev/null" # kill pane/window
 ```
 
 Readers exercise to rebind ctrl+t/(shift)ctrl tab for new window, next/prev window.
+
+## asciinema
+
+[![asciicast](https://asciinema.org/a/D0rixCa3pKa6R9ZkXjAphB1cP.png)](https://asciinema.org/a/D0rixCa3pKa6R9ZkXjAphB1cP)
