@@ -2,15 +2,11 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/davecgh/go-spew/spew"
-	"github.com/tomatosource/socklog"
 )
 
 // TODO - lol
@@ -35,11 +31,6 @@ type Dimensions struct {
 }
 
 func main() {
-	socklogger := socklog.MustNew("localhost:8080")
-	defer socklogger.Close()
-	log.SetOutput(socklogger)
-	log.SetFlags(0)
-
 	arg := os.Args[1]
 	switch arg {
 	case "x":
@@ -79,7 +70,6 @@ func kill() {
 		baseSize = layout.dimensions.width
 	}
 	newSizes := getNewSizes(len(layout.children)-1, baseSize)
-	log.Printf("%+v", newSizes)
 
 	var offset int
 	for i, child := range layout.children {
@@ -120,15 +110,12 @@ func setLayoutSize(layout *Layout, width, height int) {
 		setPaneSize(layout.pane.id, width, height)
 		return
 	}
-	log.Printf("%d x %d", width, height)
-	log.Printf("%v", layout.isRow)
 
 	baseSize := height
 	if layout.isRow {
 		baseSize = width
 	}
 	newSizes := getNewSizes(len(layout.children), baseSize)
-	log.Printf("%+v", newSizes)
 
 	for i, child := range layout.children {
 		if layout.isRow {
@@ -273,7 +260,6 @@ func mustExec(cmd string, args ...string) string {
 }
 
 func setPaneSize(paneID, width, height int) {
-	log.Printf("%d, %d, %d", paneID, width, height)
 	mustExec(
 		"tmux",
 		"resize-pane",
@@ -281,8 +267,4 @@ func setPaneSize(paneID, width, height int) {
 		fmt.Sprintf("-x %d", width),
 		fmt.Sprintf("-y %d", height),
 	)
-}
-
-func dump(foo interface{}) {
-	log.Printf("%s", spew.Sdump(foo))
 }
