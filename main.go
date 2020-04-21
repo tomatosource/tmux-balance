@@ -19,8 +19,7 @@ type Layout struct {
 }
 
 type Pane struct {
-	id         int
-	dimensions Dimensions
+	id int
 }
 
 type Dimensions struct {
@@ -180,10 +179,7 @@ func getLayout(layout string, parent *Layout, paneID int) ([]*Layout, int) {
 			layouts = append(layouts, &Layout{
 				parent:     parent,
 				dimensions: dims,
-				pane: &Pane{
-					dimensions: dims,
-					id:         paneID,
-				},
+				pane:       &Pane{id: paneID},
 			})
 			paneID++
 			idRegex, _ := regexp.Compile(`^,\d+(,|$)`)
