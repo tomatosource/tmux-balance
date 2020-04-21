@@ -13,5 +13,5 @@ Add the following to your `.tmux.conf`
 ```
 bind v run-shell "tmux-balance v &> /dev/null" # split horizontal
 bind s run-shell "tmux-balance s &> /dev/null" # split vertical
-bind x run-shell "tmux-balance x &> /dev/null" # kill pane
+bind x run-shell "tmux-balance x &> /dev/null" # kill pane/window
 ```
