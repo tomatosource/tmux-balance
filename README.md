@@ -20,4 +20,4 @@ Readers exercise to rebind ctrl+t/(shift)ctrl tab for new window, next/prev wind
 
 ## asciinema
 
-[![demo](https://asciinema.org/a/D0rixCa3pKa6R9ZkXjAphB1cP.svg)](https://asciinema.org/a/D0rixCa3pKa6R9ZkXjAphB1cP?autoplay=1)
+[![demo](https://asciinema.org/a/fqfNzlpwcIjCWiRtu3rnXYZNE.svg)](https://asciinema.org/a/fqfNzlpwcIjCWiRtu3rnXYZNE?autoplay=1)
