@@ -70,13 +70,15 @@ func split(horizontal bool) {
 func kill() {
 	activePane := getActivePane()
 	rootLayout := getRootLayout()
-	layout := getLayoutByPaneID(activePane, rootLayout)
-	if layout.pane != nil {
+
+	if paneCount(rootLayout) == 1 {
+		mustExec("tmux", "kill-window")
 		return
 	}
 
 	mustExec("tmux", "kill-pane")
 
+	layout := getLayoutByPaneID(activePane, rootLayout)
 	baseSize := layout.dimensions.height
 	if layout.isRow {
 		baseSize = layout.dimensions.width
@@ -152,7 +154,7 @@ func getLayoutByPaneID(paneID int, layout *Layout) *Layout {
 
 func getRootLayout() *Layout {
 	rawLayout := mustExec(
-		"tmux", "list-windows", "-F", "'#{window_layout}'",
+		"tmux", "display", "-p", "'#{W:,#{window_layout}}'",
 	)
 	initComma := strings.Index(rawLayout, ",")
 	rawLayout = rawLayout[initComma+1 : len(rawLayout)-2]
@@ -280,4 +282,15 @@ func setPaneSize(paneID, width, height int) {
 		fmt.Sprintf("-x %d", width),
 		fmt.Sprintf("-y %d", height),
 	)
+}
+
+func paneCount(layout *Layout) int {
+	if layout.pane != nil {
+		return 1
+	}
+	sum := 0
+	for _, child := range layout.children {
+		sum += paneCount(child)
+	}
+	return sum
 }
