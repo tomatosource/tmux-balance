@@ -50,21 +50,21 @@ func split(horizontal bool) {
 	} else {
 		mustExec("tmux", "split-window", "-v")
 	}
+	activePane := getActivePane()
+
+	rootLayout := getRootLayout()
+	layout := getLayoutByPaneID(activePane, rootLayout)
+	rebalanceLayout(layout, horizontal)
 
 	// TODO
 	// Can't seem to get -c flag working to set dir on split
 	// so setting manually
-	activePane := getActivePane()
-	time.Sleep(time.Millisecond * 50) // TODO this sucks
+	time.Sleep(time.Millisecond * 100) // TODO this sucks
 	mustExec("tmux", "send-keys",
 		fmt.Sprintf("-t %d", activePane),
 		fmt.Sprintf("cd %s && c", pwd),
 		"C-m",
 	)
-
-	rootLayout := getRootLayout()
-	layout := getLayoutByPaneID(activePane, rootLayout)
-	rebalanceLayout(layout, horizontal)
 }
 
 func kill() {
